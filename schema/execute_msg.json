@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "register_beneficiary"
+      ],
+      "properties": {
+        "register_beneficiary": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "add_to_pot"
+      ],
+      "properties": {
+        "add_to_pot": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

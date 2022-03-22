@@ -5,18 +5,6 @@
     {
       "type": "object",
       "required": [
-        "get_total"
-      ],
-      "properties": {
-        "get_total": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
         "get_donor"
       ],
       "properties": {

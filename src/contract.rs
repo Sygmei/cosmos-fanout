@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
-    Uint128,
+    coins, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Response,
+    StdResult, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -58,10 +58,10 @@ pub fn register_beneficiary(deps: DepsMut, info: MessageInfo) -> Result<Response
 
 fn split_coins_into_parts(coins: &Vec<Coin>, parts: u32) -> Vec<Vec<Coin>> {
     let mut split_coins: Vec<Vec<Coin>> = Vec::new();
-    for coin in coins {
+    for _ in 0..parts {
         let mut coin_repartition = Vec::new();
 
-        for _ in 0..parts {
+        for coin in coins {
             let equal_amount_for_coin = coin.amount.checked_div(Uint128::from(parts)).unwrap();
             let new_split_coin = Coin {
                 denom: coin.denom.clone(),
@@ -95,16 +95,25 @@ pub fn add_to_pot(deps: DepsMut, info: MessageInfo) -> Result<Response, Contract
 
     let mut response: Response<Empty> = Response::new();
 
+    let mut beneficiaries_out: Vec<String> = Vec::new();
     // TODO: Add beneficiary stuff
     for (beneficiary, coin_part) in BENEFICIARIES
         .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .zip(funds_for_each)
     {
+        let beneficiary_addr = beneficiary.expect("invalid beneficiary address");
+        beneficiaries_out.push(beneficiary_addr.clone().into_string());
         response = response.add_message(BankMsg::Send {
-            amount: coin_part,
-            to_address: beneficiary?.into_string(),
+            amount: coins(coin_part[0].amount.u128(), coin_part[0].denom.clone()),
+            to_address: beneficiary_addr.clone().into_string(),
         });
     }
+    let beneficiaries_as_str = format!("{:?}", beneficiaries_out);
+    response = response.add_attribute("beneficiaries", beneficiaries_as_str);
+    response = response.add_attribute(
+        "amount_of_beneficiaries",
+        amount_of_beneficiaries.to_string(),
+    );
     Ok(response.add_attribute("method", "add_to_pot"))
 }
 

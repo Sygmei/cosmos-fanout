@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use cosmos_fanout::msg::{ExecuteMsg, InstantiateMsg, PotDonorResponse, QueryMsg};
+use cosmos_fanout::msg::{ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg};
 use cosmos_fanout::state::State;
 
 fn main() {
@@ -16,5 +16,5 @@ fn main() {
     export_schema(&schema_for!(ExecuteMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(State), &out_dir);
-    export_schema(&schema_for!(PotDonorResponse), &out_dir);
+    export_schema(&schema_for!(PotDonatorResponse), &out_dir);
 }

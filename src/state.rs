@@ -11,4 +11,4 @@ pub struct State {
 
 pub const STATE: Item<State> = Item::new("state");
 pub const BENEFICIARIES: Map<Addr, Vec<Coin>> = Map::new("beneficiaries");
-pub const DONORS: Map<Addr, Vec<Coin>> = Map::new("donors");
+pub const DONATORS: Map<Addr, Vec<Coin>> = Map::new("donators");

@@ -5,16 +5,16 @@
     {
       "type": "object",
       "required": [
-        "get_donor"
+        "get_donator"
       ],
       "properties": {
-        "get_donor": {
+        "get_donator": {
           "type": "object",
           "required": [
-            "donor"
+            "donator"
           ],
           "properties": {
-            "donor": {
+            "donator": {
               "$ref": "#/definitions/Addr"
             }
           }

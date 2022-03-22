@@ -7,8 +7,8 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, PotDonorResponse, QueryMsg};
-use crate::state::{State, BENEFICIARIES, DONORS, STATE};
+use crate::msg::{ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg};
+use crate::state::{State, BENEFICIARIES, DONATORS, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cosmos-fanout";
@@ -80,17 +80,21 @@ fn split_coins_into_parts(coins: &Vec<Coin>, parts: u32) -> Vec<Vec<Coin>> {
 
 fn register_donation_infos(
     storage: &mut dyn Storage,
-    donor_addr: Addr,
+    donator_addr: Addr,
     mut donation_funds: Vec<Coin>,
 ) {
-    let _ = DONORS.update(storage, donor_addr, |donor| -> Result<_, ContractError> {
-        if let Some(mut donor_funds) = donor {
-            donor_funds.append(&mut donation_funds);
-            Ok(donor_funds)
-        } else {
-            Ok(donation_funds)
-        }
-    });
+    let _ = DONATORS.update(
+        storage,
+        donator_addr,
+        |donator| -> Result<_, ContractError> {
+            if let Some(mut donator_funds) = donator {
+                donator_funds.append(&mut donation_funds);
+                Ok(donator_funds)
+            } else {
+                Ok(donation_funds)
+            }
+        },
+    );
 }
 
 fn register_beneficiary_donation_infos(
@@ -161,20 +165,20 @@ pub fn admin_action(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetDonor { donor } => to_binary(&query_donor(deps, donor)?),
+        QueryMsg::GetDonator { donator } => to_binary(&query_donator(deps, donator)?),
     }
 }
 
-fn query_donor(deps: Deps, donor: Addr) -> StdResult<PotDonorResponse> {
-    if let Ok(donor_infos) = DONORS.load(deps.storage, donor.clone()) {
-        return Ok(PotDonorResponse {
-            donor: donor,
-            donations: donor_infos,
+fn query_donator(deps: Deps, donator: Addr) -> StdResult<PotDonatorResponse> {
+    if let Ok(donator_infos) = DONATORS.load(deps.storage, donator.clone()) {
+        return Ok(PotDonatorResponse {
+            donator: donator,
+            donations: donator_infos,
         });
     }
 
-    return Ok(PotDonorResponse {
-        donor: donor,
+    return Ok(PotDonatorResponse {
+        donator: donator,
         donations: [].to_vec(),
     });
 }

@@ -83,10 +83,10 @@ wasmd tx wasm execute $CONTRACT_ADDRESS '{"add_to_pot": {}}' --from $WALLET_NAME
 wasmd tx wasm execute $CONTRACT_ADDRESS '{"register_beneficiary": {}}' --from $WALLET_NAME -y -b block $GAS_FLAGS
 ```
 
-### Querying donor informations
+### Querying donator informations
 
 ```bash
-wasmd query wasm contract-state smart $CONTRACT_ADDRESS --ascii '{"get_donor": {"donor": "$DONOR_ADDR"}}'
+wasmd query wasm contract-state smart $CONTRACT_ADDRESS --ascii '{"get_donator": {"donator": "$DONATOR_ADDR"}}'
 ```
 
-Replace `$DONOR_ADDR` with the actual donor address
+Replace `$DONATOR_ADDR` with the actual donator address

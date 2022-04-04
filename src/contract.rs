@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg, BeneficiaryResponse};
 use crate::state::{State, BENEFICIARIES, DONATORS, STATE};
 
 // version info for migration info
@@ -166,6 +166,7 @@ pub fn admin_action(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetDonator { donator } => to_binary(&query_donator(deps, donator)?),
+        QueryMsg::GetBeneficiary { beneficiary } => to_binary(&query_beneficiary(deps, beneficiary)?)
     }
 }
 
@@ -180,5 +181,19 @@ fn query_donator(deps: Deps, donator: Addr) -> StdResult<PotDonatorResponse> {
     return Ok(PotDonatorResponse {
         donator: donator,
         donations: [].to_vec(),
+    });
+}
+
+fn query_beneficiary(deps: Deps, beneficiary: Addr) -> StdResult<BeneficiaryResponse> {
+    if let Ok(beneficiary_infos) = BENEFICIARIES.load(deps.storage, beneficiary.clone()) {
+        return Ok(BeneficiaryResponse {
+            beneficiary: beneficiary,
+            received_donations: beneficiary_infos,
+        });
+    }
+
+    return Ok(BeneficiaryResponse {
+        beneficiary: beneficiary,
+        received_donations: [].to_vec(),
     });
 }

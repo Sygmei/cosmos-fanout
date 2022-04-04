@@ -16,10 +16,17 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetDonator { donator: Addr },
+    GetBeneficiary { beneficiary: Addr }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct PotDonatorResponse {
     pub donator: Addr,
     pub donations: Vec<Coin>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BeneficiaryResponse {
+    pub beneficiary: Addr,
+    pub received_donations: Vec<Coin>,
 }

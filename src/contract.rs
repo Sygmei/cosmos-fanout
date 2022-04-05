@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg, BeneficiaryResponse};
+use crate::msg::{BeneficiaryResponse, ExecuteMsg, InstantiateMsg, PotDonatorResponse, QueryMsg};
 use crate::state::{State, BENEFICIARIES, DONATORS, STATE};
 
 // version info for migration info
@@ -166,7 +166,9 @@ pub fn admin_action(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetDonator { donator } => to_binary(&query_donator(deps, donator)?),
-        QueryMsg::GetBeneficiary { beneficiary } => to_binary(&query_beneficiary(deps, beneficiary)?)
+        QueryMsg::GetBeneficiary { beneficiary } => {
+            to_binary(&query_beneficiary(deps, beneficiary)?)
+        }
     }
 }
 
@@ -196,4 +198,86 @@ fn query_beneficiary(deps: Deps, beneficiary: Addr) -> StdResult<BeneficiaryResp
         beneficiary: beneficiary,
         received_donations: [].to_vec(),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
+    use cosmwasm_std::{coins, from_binary};
+    #[test]
+    fn proper_initialization() {
+        let mut deps = mock_dependencies_with_balance(&coins(0, "token"));
+        let msg = InstantiateMsg {};
+        let owner_info = mock_info("owner", &coins(1000, "token"));
+        // we can just call .unwrap() to assert this was a success
+        let res = instantiate(deps.as_mut(), mock_env(), owner_info.clone(), msg).unwrap();
+        assert_eq!(0, res.messages.len());
+        // it worked, let's query the state
+        let state = STATE.load(&deps.storage).expect("failed to load state");
+        assert_eq!(state.owner, owner_info.sender, "invalid owner");
+    }
+    #[test]
+    fn funds_distribution_2_beneficiary() {
+        // Instantiating smart contract
+        let mut deps = mock_dependencies_with_balance(&coins(0, "token"));
+        let msg = InstantiateMsg {};
+        let owner_info = mock_info("owner", &coins(2, "token"));
+        let _res = instantiate(deps.as_mut(), mock_env(), owner_info, msg).unwrap();
+
+        // Create two beneficiaries
+        let beneficiary1_info = mock_info("beneficiary1", &coins(1, "token"));
+        let beneficiary2_info = mock_info("beneficiary2", &coins(1, "token"));
+
+        // Register beneficiaries
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            beneficiary1_info.clone(),
+            ExecuteMsg::RegisterBeneficiary {},
+        )
+        .unwrap();
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            beneficiary2_info.clone(),
+            ExecuteMsg::RegisterBeneficiary {},
+        )
+        .unwrap();
+
+        // Create one donator
+        let donator1_info = mock_info("donator1", &coins(1000, "token"));
+
+        // Donate 1000 tokens
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            donator1_info,
+            ExecuteMsg::AddToPot {},
+        )
+        .unwrap();
+
+        // Query beneficiary donated funds
+        let res = query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::GetBeneficiary {
+                beneficiary: beneficiary1_info.sender,
+            },
+        )
+        .expect("could not query beneficiary1 funds");
+        let beneficiary1_funds: BeneficiaryResponse = from_binary(&res).unwrap();
+        assert!(beneficiary1_funds.received_donations[0].amount == Uint128::from(500u32));
+
+        let res = query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::GetBeneficiary {
+                beneficiary: beneficiary2_info.sender,
+            },
+        )
+        .expect("could not query beneficiary2 funds");
+        let beneficiary2_funds: BeneficiaryResponse = from_binary(&res).unwrap();
+        assert!(beneficiary2_funds.received_donations[0].amount == Uint128::from(500u32));
+    }
 }

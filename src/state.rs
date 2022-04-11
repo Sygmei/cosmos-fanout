@@ -7,6 +7,7 @@ use cw_storage_plus::{Item, Map};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub owner: Addr,
+    pub only_owner_can_register_beneficiary: bool,
 }
 
 pub const STATE: Item<State> = Item::new("state");

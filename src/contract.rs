@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     coins, to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
-    Response, StdResult, Storage, Uint128,
+    Response, StdError, StdResult, Storage, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -19,11 +19,12 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let state = State {
         owner: info.sender.clone(),
+        only_owner_can_register_beneficiary: msg.only_owner_can_register_beneficiary,
     };
     STATE.save(deps.storage, &state)?;
 
@@ -42,16 +43,29 @@ pub fn execute(
     // Acts like a message dispatcher
     // Will reroute the message to the correct handler
     match msg {
-        ExecuteMsg::RegisterBeneficiary {} => register_beneficiary(deps, info),
+        ExecuteMsg::RegisterBeneficiaryAsOwner { beneficiary } => {
+            register_beneficiary(deps, info, beneficiary)
+        }
+        ExecuteMsg::RegisterBeneficiary {} => {
+            register_beneficiary(deps, info.clone(), info.sender.clone())
+        }
         ExecuteMsg::AddToPot {} => add_to_pot(deps, info),
     }
 }
 
-pub fn register_beneficiary(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
-    if BENEFICIARIES.has(deps.storage, info.sender.clone()) {
+pub fn register_beneficiary(
+    deps: DepsMut,
+    info: MessageInfo,
+    beneficiary: Addr,
+) -> Result<Response, ContractError> {
+    let state = STATE.load(deps.storage).expect("unable to load state");
+    if state.only_owner_can_register_beneficiary && state.owner != info.sender {
+        return Err(ContractError::Unauthorized {});
+    }
+    if BENEFICIARIES.has(deps.storage, beneficiary.clone()) {
         return Err(ContractError::AlreadyABeneficiary {});
     }
-    let result = BENEFICIARIES.save(deps.storage, info.sender, &mut Vec::new());
+    let result = BENEFICIARIES.save(deps.storage, beneficiary, &mut Vec::new());
     if result.is_err() {
         return Err(ContractError::Unauthorized {});
     }
@@ -165,6 +179,7 @@ pub fn admin_action(deps: DepsMut, info: MessageInfo) -> Result<Response, Contra
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::GetState {} => to_binary(&query_state(deps)?),
         QueryMsg::GetDonator { donator } => to_binary(&query_donator(deps, donator)?),
         QueryMsg::GetBeneficiary { beneficiary } => {
             to_binary(&query_beneficiary(deps, beneficiary)?)
@@ -172,30 +187,44 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-fn query_donator(deps: Deps, donator: Addr) -> StdResult<PotDonatorResponse> {
-    if let Ok(donator_infos) = DONATORS.load(deps.storage, donator.clone()) {
+fn query_state(deps: Deps) -> StdResult<State> {
+    if let Ok(state) = STATE.load(deps.storage) {
+        return Ok(State {
+            owner: state.owner,
+            only_owner_can_register_beneficiary: state.only_owner_can_register_beneficiary,
+        });
+    }
+    Err(StdError::GenericErr {
+        msg: "unable to load contract state".to_string(),
+    })
+}
+
+fn query_donator(deps: Deps, donator: String) -> StdResult<PotDonatorResponse> {
+    let donator_addr = deps.api.addr_validate(&donator)?;
+    if let Ok(donator_infos) = DONATORS.load(deps.storage, donator_addr.clone()) {
         return Ok(PotDonatorResponse {
-            donator: donator,
+            donator: donator_addr,
             donations: donator_infos,
         });
     }
 
     return Ok(PotDonatorResponse {
-        donator: donator,
+        donator: donator_addr,
         donations: [].to_vec(),
     });
 }
 
-fn query_beneficiary(deps: Deps, beneficiary: Addr) -> StdResult<BeneficiaryResponse> {
-    if let Ok(beneficiary_infos) = BENEFICIARIES.load(deps.storage, beneficiary.clone()) {
+fn query_beneficiary(deps: Deps, beneficiary: String) -> StdResult<BeneficiaryResponse> {
+    let beneficiary_addr = deps.api.addr_validate(&beneficiary)?;
+    if let Ok(beneficiary_infos) = BENEFICIARIES.load(deps.storage, beneficiary_addr.clone()) {
         return Ok(BeneficiaryResponse {
-            beneficiary: beneficiary,
+            beneficiary: beneficiary_addr,
             received_donations: beneficiary_infos,
         });
     }
 
     return Ok(BeneficiaryResponse {
-        beneficiary: beneficiary,
+        beneficiary: beneficiary_addr,
         received_donations: [].to_vec(),
     });
 }
@@ -208,7 +237,9 @@ mod tests {
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies_with_balance(&coins(0, "token"));
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            only_owner_can_register_beneficiary: false,
+        };
         let owner_info = mock_info("owner", &coins(1000, "token"));
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), owner_info.clone(), msg).unwrap();
@@ -221,7 +252,9 @@ mod tests {
     fn funds_distribution_2_beneficiary() {
         // Instantiating smart contract
         let mut deps = mock_dependencies_with_balance(&coins(0, "token"));
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            only_owner_can_register_beneficiary: false,
+        };
         let owner_info = mock_info("owner", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), owner_info, msg).unwrap();
 
@@ -236,14 +269,14 @@ mod tests {
             beneficiary1_info.clone(),
             ExecuteMsg::RegisterBeneficiary {},
         )
-        .unwrap();
+        .expect("error occured while beneficiary2 tried to register");
         execute(
             deps.as_mut(),
             mock_env(),
             beneficiary2_info.clone(),
             ExecuteMsg::RegisterBeneficiary {},
         )
-        .unwrap();
+        .expect("error occured while beneficiary2 tried to register");
 
         // Create one donator
         let donator1_info = mock_info("donator1", &coins(1000, "token"));
@@ -255,14 +288,14 @@ mod tests {
             donator1_info,
             ExecuteMsg::AddToPot {},
         )
-        .unwrap();
+        .expect("error occured while donating");
 
         // Query beneficiary donated funds
         let res = query(
             deps.as_ref(),
             mock_env(),
             QueryMsg::GetBeneficiary {
-                beneficiary: beneficiary1_info.sender,
+                beneficiary: beneficiary1_info.sender.to_string(),
             },
         )
         .expect("could not query beneficiary1 funds");
@@ -273,11 +306,68 @@ mod tests {
             deps.as_ref(),
             mock_env(),
             QueryMsg::GetBeneficiary {
-                beneficiary: beneficiary2_info.sender,
+                beneficiary: beneficiary2_info.sender.to_string(),
             },
         )
         .expect("could not query beneficiary2 funds");
         let beneficiary2_funds: BeneficiaryResponse = from_binary(&res).unwrap();
         assert!(beneficiary2_funds.received_donations[0].amount == Uint128::from(500u32));
+    }
+    #[test]
+    fn test_only_admin_can_add_beneficiaries() {
+        // Instantiating smart contract
+        let mut deps = mock_dependencies_with_balance(&coins(0, "token"));
+        let msg = InstantiateMsg {
+            only_owner_can_register_beneficiary: true,
+        };
+        let owner_info = mock_info("owner", &coins(2, "token"));
+        let _res = instantiate(deps.as_mut(), mock_env(), owner_info.clone(), msg).unwrap();
+
+        // Create two beneficiaries
+        let beneficiary_info = mock_info("beneficiary1", &coins(1, "token"));
+
+        // Register beneficiaries as user (should be failing)
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            beneficiary_info.clone(),
+            ExecuteMsg::RegisterBeneficiary {},
+        )
+        .expect_err("should be Unauthorized");
+
+        // Register beneficiaries as owner (should be working)
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            owner_info.clone(),
+            ExecuteMsg::RegisterBeneficiaryAsOwner {
+                beneficiary: beneficiary_info.sender.clone(),
+            },
+        )
+        .expect("owner failed to register beneficiary1 as a beneficiary");
+
+        // Create one donator
+        let donator1_info = mock_info("donator1", &coins(1000, "token"));
+
+        // Donate 1000 tokens
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            donator1_info,
+            ExecuteMsg::AddToPot {},
+        )
+        .expect("failed to donate tokens");
+
+        // Query beneficiary donated funds
+        let res = query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::GetBeneficiary {
+                beneficiary: beneficiary_info.sender.to_string(),
+            },
+        )
+        .expect("could not query beneficiary1 funds");
+        let beneficiary1_funds: BeneficiaryResponse = from_binary(&res).unwrap();
+        assert!(beneficiary1_funds.received_donations[0].amount == Uint128::from(1000u32));
     }
 }

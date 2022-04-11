@@ -3,11 +3,14 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub only_owner_can_register_beneficiary: bool,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
+    RegisterBeneficiaryAsOwner { beneficiary: Addr },
     RegisterBeneficiary {},
     AddToPot {},
 }
@@ -15,8 +18,9 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    GetDonator { donator: Addr },
-    GetBeneficiary { beneficiary: Addr }
+    GetState {},
+    GetDonator { donator: String },
+    GetBeneficiary { beneficiary: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

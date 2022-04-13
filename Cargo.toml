@@ -1,8 +1,8 @@
 [package]
 name = "cosmos-fanout"
-version = "0.2.0"
+version = "0.4.0"
 authors = ["Sygmei <3835355+Sygmei@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
@@ -47,6 +47,7 @@ cw2 = "0.12"
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0" }
+semver = "1.0.7"
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0-beta5" }

@@ -1,1 +1,1 @@
-fb1bd568c254a5e16745767fd662d2cf9ff082e775f82131ea40d3dbad9721b0  ./target/wasm32-unknown-unknown/release/cosmos_fanout.wasm
+6875d2b2d2de5174043fae354bbbd33d4f0f281d6d0f2e8e94fa75dd443f8981  ./target/wasm32-unknown-unknown/release/cosmos_fanout.wasm

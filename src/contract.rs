@@ -116,6 +116,7 @@ pub fn register_beneficiary(
     let mut old_donations: Vec<Coin> = Vec::new();
     if REMOVED_BENEFICIARIES.has(deps.storage, beneficiary_addr.clone()) {
         old_donations = REMOVED_BENEFICIARIES.load(deps.storage, beneficiary_addr.clone())?;
+        REMOVED_BENEFICIARIES.remove(deps.storage, beneficiary_addr.clone());
     }
     let result = BENEFICIARIES.save(deps.storage, beneficiary_addr, &mut old_donations);
     if result.is_err() {
@@ -717,6 +718,16 @@ mod tests {
             ExecuteMsg::RegisterBeneficiary {},
         )
         .expect("register beneficiary failed");
+
+        // Assert that removed_beneficiaries is empty
+        let _res = query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::GetRemovedBeneficiary {
+                beneficiary: beneficiary_info.sender.to_string(),
+            },
+        )
+        .expect_err("beneficiary should not be in removed beneficiaries");
 
         // Check that funds logs have been restored
         let beneficiary_query_resp = query(
